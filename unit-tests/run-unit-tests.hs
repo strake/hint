@@ -200,6 +200,19 @@ test_only_one_instance = TestCase "only_one_instance" [] $ liftIO $ do
         _ <- forkIO $ Control.Monad.void concurrent
         readMVar r @?  "concurrent instance did not fail"
 
+test_normalize_type :: TestCase
+test_normalize_type = TestCase "normalize_type" [mod_file] $ do
+        liftIO $ writeFile mod_file mod_text
+        loadModules [mod_file]
+        setTopLevelModules ["T"]
+        normalizeType "Foo Int" @@?= "()"
+
+    where mod_text = unlines ["{-# LANGUAGE TypeFamilies #-}"
+                             ,"module T where"
+                             ,"type family Foo x"
+                             ,"type instance Foo x = ()"]
+          mod_file = "TEST_NormalizeType.hs"
+
 tests :: [TestCase]
 tests = [test_reload_modified
         ,test_lang_exts
@@ -215,6 +228,7 @@ tests = [test_reload_modified
         ,test_search_path_dot
         ,test_catch
         ,test_only_one_instance
+        ,test_normalize_type
         ]
 
 main :: IO ()

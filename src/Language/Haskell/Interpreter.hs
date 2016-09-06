@@ -34,7 +34,7 @@ module Language.Haskell.Interpreter(
     -- pragmas inline in the code since GHC scarfs them up.
     getModuleAnnotations, getValAnnotations,
     -- ** Type inference
-     typeOf, typeChecks, kindOf,
+     typeOf, typeChecks, kindOf, normalizeType,
     -- ** Evaluation
      interpret, as, infer, eval,
     -- * Error handling

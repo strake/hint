@@ -1,5 +1,5 @@
 module Hint.Typecheck (
-      typeOf, typeChecks, kindOf,
+      typeOf, typeChecks, kindOf, normalizeType
 ) where
 
 import Control.Monad.Catch
@@ -37,17 +37,30 @@ kindOf type_expr =
        -- kind of errors
        failOnParseError parseType type_expr
        --
-       kind <- mayFail $ runGhc1 typeKind type_expr
+       (_, kind) <- mayFail $ runGhc1 typeKind type_expr
        --
        kindToString (Compat.Kind kind)
+
+-- | Returns a string representation of the normalized type expression.
+-- This is what the @:kind!@ GHCi command prints after @=@.
+normalizeType :: MonadInterpreter m => String -> m String
+normalizeType type_expr =
+    do -- First, make sure the expression has no syntax errors,
+       -- for this is the only way we have to "intercept" this
+       -- kind of errors
+       failOnParseError parseType type_expr
+       --
+       (ty, _) <- mayFail $ runGhc1 typeKind type_expr
+       --
+       typeToString ty
 
 -- add a bogus Maybe, in order to use it with mayFail
 exprType :: GHC.GhcMonad m => String -> m (Maybe GHC.Type)
 exprType = fmap Just . GHC.exprType
 
 -- add a bogus Maybe, in order to use it with mayFail
-typeKind :: GHC.GhcMonad m => String -> m (Maybe GHC.Kind)
-typeKind = fmap (Just . snd) . GHC.typeKind True
+typeKind :: GHC.GhcMonad m => String -> m (Maybe (GHC.Type, GHC.Kind))
+typeKind = fmap Just . GHC.typeKind True
 
 onCompilationError :: MonadInterpreter m
                    => ([GhcError] -> m a)
