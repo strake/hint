@@ -25,7 +25,6 @@ import Data.Maybe
 import qualified GHC.Paths
 
 import qualified Hint.GHC as GHC
-import qualified Hint.Compat as Compat
 
 type Interpreter = InterpreterT IO
 
@@ -103,7 +102,7 @@ initialize args =
        let toOpt e     = let err = error ("init error: unknown ext:" ++ show e)
                          in fromMaybe err (lookup e extMap)
        let getOptVal e = (asExtension e, GHC.xopt (toOpt e) df2)
-       let defExts = map  getOptVal Compat.supportedExtensions
+       let defExts = map  getOptVal supportedExtensions
 
        onState (\s -> s{defaultExts = defExts})
 

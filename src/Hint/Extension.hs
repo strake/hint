@@ -1,14 +1,23 @@
 -- this module was automatically generated. do not edit!
 -- edit util/mk_extensions_mod.hs instead
 module Hint.Extension (
-    Extension(..), availableExtensions, asExtension
+    Extension(..), supportedExtensions, availableExtensions, asExtension
 ) where
 
-import Hint.Compat as Compat
+import qualified Hint.GHC as GHC
+
+supportedExtensions :: [String]
+supportedExtensions = map f GHC.xFlags
+    where
+#if (__GLASGOW_HASKELL__ >= 710)
+      f = GHC.flagSpecName
+#else
+      f (e,_,_) = e
+#endif
 
 -- | List of the extensions known by the interpreter.
 availableExtensions :: [Extension]
-availableExtensions = map asExtension Compat.supportedExtensions
+availableExtensions = map asExtension supportedExtensions
 
 asExtension :: String -> Extension
 asExtension s = if isKnown s

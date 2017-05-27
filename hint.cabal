@@ -63,7 +63,6 @@ Library
   other-modules:   Hint.GHC
                    Hint.Base
                    Hint.InterpreterT
-                   Hint.Compat
                    Hint.CompatPlatform
                    Hint.Configuration
                    Hint.Extension
