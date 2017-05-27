@@ -84,8 +84,8 @@ initialize args =
        -- Set a custom log handler, to intercept error messages :S
        df0 <- runGhc GHC.getSessionDynFlags
 
-       let df1 = Compat.configureDynFlags df0
-       (df2, extra) <- runGhc2 Compat.parseDynamicFlags df1 args
+       let df1 = configureDynFlags df0
+       (df2, extra) <- runGhc2 parseDynamicFlags df1 args
        unless (null extra) $
             throwM $ UnknownError (concat [ "flags: '"
                                           , unwords extra

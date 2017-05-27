@@ -8,7 +8,6 @@ import Hint.Base
 import Hint.Parsers
 import Hint.Conversions
 
-import qualified Hint.Compat as Compat
 import qualified Hint.GHC as GHC
 
 -- | Returns a string representation of the type of the expression.
@@ -39,7 +38,7 @@ kindOf type_expr =
        --
        (_, kind) <- mayFail $ runGhc1 typeKind type_expr
        --
-       kindToString (Compat.Kind kind)
+       kindToString kind
 
 -- | Returns a string representation of the normalized type expression.
 -- This is what the @:kind!@ GHCi command prints after @=@.

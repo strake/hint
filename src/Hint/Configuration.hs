@@ -8,7 +8,10 @@ module Hint.Configuration (
       languageExtensions, availableExtensions, Extension(..),
       installedModulesInScope,
 
-      searchPath
+      searchPath,
+
+      configureDynFlags, parseDynamicFlags,
+
 ) where
 
 import Control.Monad
@@ -17,7 +20,6 @@ import Data.Char
 import Data.List (intercalate)
 
 import qualified Hint.GHC as GHC
-import qualified Hint.Compat as Compat
 import Hint.Base
 import Hint.Util (quote)
 
@@ -26,7 +28,7 @@ import Hint.Extension
 setGhcOptions :: MonadInterpreter m => [String] -> m ()
 setGhcOptions opts =
     do old_flags <- runGhc GHC.getSessionDynFlags
-       (new_flags,not_parsed) <- runGhc2 Compat.parseDynamicFlags old_flags opts
+       (new_flags,not_parsed) <- runGhc2 parseDynamicFlags old_flags opts
        unless (null not_parsed) $
             throwM $ UnknownError
                             $ concat ["flags: ", unwords $ map quote not_parsed,
@@ -127,3 +129,16 @@ onConf :: MonadInterpreter m
        => (InterpreterConfiguration -> InterpreterConfiguration)
        -> m ()
 onConf f = onState $ \st -> st{configuration = f (configuration st)}
+
+configureDynFlags :: GHC.DynFlags -> GHC.DynFlags
+configureDynFlags dflags =
+    (if GHC.dynamicGhc then GHC.addWay' GHC.WayDyn else id)
+                           dflags{GHC.ghcMode    = GHC.CompManager,
+                                  GHC.hscTarget  = GHC.HscInterpreted,
+                                  GHC.ghcLink    = GHC.LinkInMemory,
+                                  GHC.verbosity  = 0}
+
+parseDynamicFlags :: GHC.GhcMonad m
+                  => GHC.DynFlags -> [String] -> m (GHC.DynFlags, [String])
+parseDynamicFlags d = fmap firstTwo . GHC.parseDynamicFlags d . map GHC.noLoc
+    where firstTwo (a,b,_) = (a, map GHC.unLoc b)

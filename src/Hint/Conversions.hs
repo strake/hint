@@ -5,7 +5,6 @@ module Hint.Conversions (
 import qualified Hint.GHC as GHC
 
 import Hint.Base
-import qualified Hint.Compat as Compat
 
 -- --------- Types / Kinds -----------------------
 
@@ -15,12 +14,12 @@ typeToString t
       -- (i.e., do not expose internals)
       unqual <- runGhc GHC.getPrintUnqual
       withDynFlags $ \df ->
-        return $ GHC.showSDocForUser df unqual (Compat.pprType t)
+        return $ GHC.showSDocForUser df unqual (GHC.pprTypeForUser t)
 
-kindToString :: MonadInterpreter m => Compat.Kind -> m String
-kindToString (Compat.Kind k)
+kindToString :: MonadInterpreter m => GHC.Kind -> m String
+kindToString k
  = withDynFlags $ \df ->
-     return $ GHC.showSDoc df (Compat.pprType k)
+     return $ GHC.showSDoc df (GHC.pprTypeForUser k)
 
 -- ---------------- Modules --------------------------
 
