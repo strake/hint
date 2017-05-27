@@ -30,7 +30,7 @@ source-repository head
   type:     git
   location: https://github.com/mvdan/hint
 
-Test-Suite unit-tests
+test-suite unit-tests
   type:           exitcode-stdio-1.0
   hs-source-dirs: unit-tests
   main-is:        run-unit-tests.hs
@@ -43,7 +43,7 @@ Test-Suite unit-tests
                   extensible-exceptions,
                   exceptions
 
-Library
+library
   build-depends: base == 4.*,
                  ghc >= 7.6 && < 8.4,
                  ghc-paths,
