@@ -32,12 +32,8 @@ import DynFlags as X (WarnReason(NoReason))
 import PprTyThing as X (pprTypeForUser)
 import SrcLoc as X (mkRealSrcLoc)
 
-#if __GLASGOW_HASKELL__ >= 708
 import ConLike as X (ConLike(RealDataCon))
-#endif
 
-#if __GLASGOW_HASKELL__ >= 708
 import DynFlags as X (addWay', Way(..), dynamicGhc)
-#endif
 
 type Message = MsgDoc

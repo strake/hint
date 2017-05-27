@@ -17,9 +17,7 @@ supportedExtensions = map f GHC.xFlags
 
 configureDynFlags :: GHC.DynFlags -> GHC.DynFlags
 configureDynFlags dflags =
-#if __GLASGOW_HASKELL__ >= 708
     (if GHC.dynamicGhc then GHC.addWay' GHC.WayDyn else id)
-#endif
                            dflags{GHC.ghcMode    = GHC.CompManager,
                                   GHC.hscTarget  = GHC.HscInterpreted,
                                   GHC.ghcLink    = GHC.LinkInMemory,
@@ -31,8 +29,4 @@ parseDynamicFlags d = fmap firstTwo . GHC.parseDynamicFlags d . map GHC.noLoc
     where firstTwo (a,b,_) = (a, map GHC.unLoc b)
 
 pprType :: GHC.Type -> GHC.SDoc
-#if __GLASGOW_HASKELL__ < 708
-pprType = GHC.pprTypeForUser False -- False means drop explicit foralls
-#else
 pprType = GHC.pprTypeForUser
-#endif

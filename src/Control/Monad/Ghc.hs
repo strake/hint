@@ -38,12 +38,6 @@ instance MTL.MonadTrans GhcT where
 instance MTL.MonadIO m => MTL.MonadIO (GhcT m) where
     liftIO = GhcT . GHC.liftIO
 
-#if __GLASGOW_HASKELL__ < 708
-  -- ghc started using transformers at some point
-instance MTL.MonadIO m => GHC.MonadIO (GhcT m) where
-    liftIO = MTL.liftIO
-#endif
-
 instance MonadCatch m => MonadThrow (GhcT m) where
     throwM = lift . throwM
 
