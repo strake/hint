@@ -1,3 +1,10 @@
+### 0.7.0
+
+* Support for GHC 8.2
+* Support use in a dynamically-linked executable
+* Add `normalizeType`, like ghci's :kind!
+* Drop support for GHC 7.6
+
 ### 0.6.0
 
 * Support for GHC 8.0
