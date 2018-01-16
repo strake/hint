@@ -24,12 +24,9 @@ import Control.Monad.Catch as MC
 
 import Data.IORef
 import Data.Dynamic
+import qualified Data.List
 
 import qualified Hint.GHC as GHC
-
-#if MIN_VERSION_base(4,8,0)
-import qualified Data.List
-#endif
 
 import Hint.Extension
 
@@ -91,13 +88,11 @@ data InterpreterConfiguration = Conf {
 type InterpreterSession = SessionData ()
 
 instance Exception InterpreterError
-#if MIN_VERSION_base(4,8,0)
   where
     displayException (UnknownError err) = "UnknownError: " ++ err
     displayException (WontCompile  es)  = unlines . Data.List.nub . map errMsg $ es
     displayException (NotAllowed   err) = "NotAllowed: "   ++ err
     displayException (GhcException err) = "GhcException: " ++ err
-#endif
 
 type RunGhc  m a =
 #if __GLASGOW_HASKELL__ >= 800
