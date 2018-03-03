@@ -41,7 +41,7 @@ test-suite unit-tests
                   directory,
                   filepath,
                   extensible-exceptions,
-                  exceptions
+                  exceptions == 0.8.*
 
 library
   build-depends: base == 4.*,
@@ -49,7 +49,7 @@ library
                  ghc-paths,
                  mtl,
                  filepath,
-                 exceptions,
+                 exceptions == 0.8.*,
                  random,
                  directory
 
