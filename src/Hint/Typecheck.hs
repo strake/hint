@@ -34,9 +34,9 @@ typeChecks expr = (typeOf expr >> return True)
 
 -- | Similar to @typeChecks@, but gives more information, e.g. the type errors.
 typeChecksWithDetails :: MonadInterpreter m => String -> m (Either [GhcError] String)
-typeChecksWithDetails expr = (typeOf expr >>= return . Right)
+typeChecksWithDetails expr = (Right <$> typeOf expr)
                               `catchIE`
-                              onCompilationError (\a -> return (Left a))
+                              onCompilationError (return . Left)
 
 -- | Returns a string representation of the kind of the type expression.
 kindOf :: MonadInterpreter m => String -> m String
