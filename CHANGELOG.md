@@ -1,15 +1,15 @@
-### Upcoming release
-
-* Add `runStmt` for executing statements in the `IO` monad and binding new names.
-
 ### 0.8.0
 
 * Support GHC 8.4
-* Drop support for GHC 7.10
+* Drop support for GHC 7.8 and 7.10
+* Add `runStmt` to execute statements in the IO monad and bind new names
 * Internal changes of temporary files for phantom modules
   - The files are now called `M<nnn>.hs` instead of `<nnn>`
   - Improved cleanup of phantom module source files
   - ghc 8.4 only: phantom modules are put into a temporary directory
+* Add `typeChecksWithDetails` to obtain type-checking errors
+* Stop GHC from overwriting the Ctrl-C signal handler
+* Add `SetImportsF` to allow finer imports control
 
 ### 0.7.0
 
