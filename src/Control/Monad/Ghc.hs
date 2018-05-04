@@ -60,7 +60,20 @@ instance (MonadIO m, MonadMask m) => MonadMask (GhcT m) where
         wrap g   = GhcT $ GHC.GhcT $ \s -> MTLAdapter (g s)
         unwrap m = unMTLA . GHC.unGhcT (unGhcT m)
 
-    uninterruptibleMask = mask
+    uninterruptibleMask f = wrap $ \s ->
+                              uninterruptibleMask $ \io_restore ->
+                                unwrap (f $ \m -> (wrap $ \s' -> io_restore (unwrap m s'))) s
+      where
+        wrap g   = GhcT $ GHC.GhcT $ \s -> MTLAdapter (g s)
+        unwrap m = unMTLA . GHC.unGhcT (unGhcT m)
+
+    generalBracket acquire release body
+      = wrap $ \s -> generalBracket (unwrap acquire s)
+                                    (\a exitCase -> unwrap (release a exitCase) s)
+                                    (\a -> unwrap (body a) s)
+      where
+        wrap g   = GhcT $ GHC.GhcT $ \s -> MTLAdapter (g s)
+        unwrap m = unMTLA . GHC.unGhcT (unGhcT m)
 
 instance (MonadIO m, MonadCatch m, MonadMask m) => GHC.ExceptionMonad (GhcT m) where
     gcatch  = catch
