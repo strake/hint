@@ -1,3 +1,7 @@
+### 0.9.0.1
+
+* Make tests pass with stack 2.1.1
+
 ### 0.9.0
 
 * Support GHC 8.6
