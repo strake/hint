@@ -1,3 +1,8 @@
+### 0.10.0
+
+* Support GHC 8.8
+* Drop support for GHC 8.2
+
 ### 0.9.0.1
 
 * Make tests pass with stack 2.1.1
