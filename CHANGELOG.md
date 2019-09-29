@@ -1,4 +1,4 @@
-### 0.10.0
+### 0.9.0.2
 
 * Support GHC 8.8
 * Drop support for GHC 8.2
