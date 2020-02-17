@@ -3,30 +3,28 @@ language: c
 
 matrix:
   include:
-    - env: CABALVER=2.2  GHCVER=8.4.4
-      addons: {apt: {packages: [cabal-install-2.2,  ghc-8.4.4], sources: [hvr-ghc]}}
-    - env: CABALVER=2.4  GHCVER=8.6.5
-      addons: {apt: {packages: [cabal-install-2.4,  ghc-8.6.5], sources: [hvr-ghc]}}
-    - env: CABALVER=2.6  GHCVER=8.8.1
-      addons: {apt: {packages: [cabal-install-2.4,  ghc-8.8.1], sources: [hvr-ghc]}}
-    - env: CABALVER=2.6  GHCVER=8.8.1 CONFIG_OPTS=--enable-executable-dynamic
-      addons: {apt: {packages: [cabal-install-2.4,  ghc-8.8.1], sources: [hvr-ghc]}}
+    - env: CABALVER=3.2  GHCVER=8.4.4
+      addons: {apt: {packages: [cabal-install-3.2,  ghc-8.4.4], sources: [hvr-ghc]}}
+    - env: CABALVER=3.2  GHCVER=8.6.5
+      addons: {apt: {packages: [cabal-install-3.2,  ghc-8.6.5], sources: [hvr-ghc]}}
+    - env: CABALVER=3.2  GHCVER=8.8.2
+      addons: {apt: {packages: [cabal-install-3.2,  ghc-8.8.2], sources: [hvr-ghc]}}
+    - env: CABALVER=3.2  GHCVER=8.8.2 CONFIG_OPTS=--enable-executable-dynamic
+      addons: {apt: {packages: [cabal-install-3.2,  ghc-8.8.2], sources: [hvr-ghc]}}
 
 cache:
   directories:
     - $HOME/.cabal/
     - $HOME/.ghc/
-    - dist/
+    - dist-newstyle/
 
 before_install:
   - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
 
 install:
   - travis_retry cabal update
-  - cabal install --only-dependencies --enable-tests
+  - cabal v2-build --only-dependencies --enable-tests
 
 script:
-  - cabal configure --enable-tests $CONFIG_OPTS
-  - cabal test
-  - cabal install
-  - (cd examples && runghc example.hs)
+  - cabal v2-test
+  - cabal v2-exec -- runghc examples/example.hs | diff examples/expected.txt -
