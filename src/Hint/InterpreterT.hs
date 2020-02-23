@@ -135,6 +135,7 @@ runInterpreterWithArgsLibdir args libdir action =
           newInterpreterSession = newSessionData ()
           cleanSession = cleanPhantomModules
 
+#ifndef THREAD_SAFE_LINKER
 {-# NOINLINE uniqueToken #-}
 uniqueToken :: MVar ()
 uniqueToken = unsafePerformIO $ newMVar ()
@@ -143,6 +144,10 @@ ifInterpreterNotRunning :: (MonadIO m, MonadMask m) => m a -> m a
 ifInterpreterNotRunning action = liftIO (tryTakeMVar uniqueToken) >>= \ case
     Nothing -> throwM MultipleInstancesNotAllowed
     Just x  -> action `finally` liftIO (putMVar uniqueToken x)
+#else
+ifInterpreterNotRunning :: a -> a
+ifInterpreterNotRunning = id
+#endif
 
 -- | The installed version of ghc is not thread-safe. This exception
 --   is thrown whenever you try to execute @runInterpreter@ while another

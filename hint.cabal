@@ -54,7 +54,7 @@ test-suite unit-tests
 
 library
   build-depends: base == 4.*,
-                 ghc >= 8.2 && < 8.9,
+                 ghc >= 8.2 && < 8.11,
                  ghc-paths,
                  ghc-boot,
                  transformers,
@@ -66,6 +66,9 @@ library
   if impl(ghc >= 8.4 && < 8.9) {
       build-depends: temporary
       cpp-options: -DNEED_PHANTOM_DIRECTORY
+  }
+  if impl(ghc >= 8.10) {
+      cpp-options: -DTHREAD_SAFE_LINKER
   }
 
   if !os(windows) {
