@@ -205,6 +205,7 @@ test_catch = TestCase "catch" [] $ do
           action = do s <- eval "1 `div` 0 :: Int"
                       return $! s
 
+#ifndef THREAD_SAFE_LINKER
 test_only_one_instance :: TestCase
 test_only_one_instance = TestCase "only_one_instance" [] $ liftIO $ do
         r <- newEmptyMVar
@@ -214,6 +215,17 @@ test_only_one_instance = TestCase "only_one_instance" [] $ liftIO $ do
                                        return $ Right ()
         _ <- forkIO $ Control.Monad.void concurrent
         readMVar r @?  "concurrent instance did not fail"
+#else
+test_multiple_instances :: TestCase
+test_multiple_instances = TestCase "multiple_instances" [] $ liftIO $ do
+        r <- newEmptyMVar
+        let concurrent = runInterpreter (liftIO $ putMVar r True)
+                          `catch` \MultipleInstancesNotAllowed ->
+                                    do liftIO $ putMVar r False
+                                       return $ Right ()
+        _ <- forkIO $ Control.Monad.void concurrent
+        readMVar r @?  "failed on concurrent instances"
+#endif
 
 test_normalize_type :: TestCase
 test_normalize_type = TestCase "normalize_type" [mod_file] $ do
@@ -284,7 +296,11 @@ tests = [test_reload_modified
         ,test_search_path
         ,test_search_path_dot
         ,test_catch
+#ifndef THREAD_SAFE_LINKER
         ,test_only_one_instance
+#else
+        ,test_multiple_instances
+#endif
         ,test_normalize_type
         ]
 
