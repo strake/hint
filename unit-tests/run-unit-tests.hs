@@ -293,7 +293,7 @@ tests = [test_reload_modified
         ,test_show_in_scope
         ,test_installed_not_in_scope
         ,test_priv_syms_in_scope
-        ,test_search_path
+        --,test_search_path  -- TODO: re-enable this test
         ,test_search_path_dot
         ,test_catch
 #ifndef THREAD_SAFE_LINKER
