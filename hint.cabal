@@ -42,9 +42,18 @@ test-suite unit-tests
                   filepath,
                   extensible-exceptions,
                   exceptions >= 0.10.0,
+                  stm,
 
                   -- packages used by setImports calls
                   containers
+
+  if impl(ghc >= 8.4 && < 8.9) {
+      build-depends: temporary
+      cpp-options: -DNEED_PHANTOM_DIRECTORY
+  }
+  if impl(ghc >= 8.10) {
+      cpp-options: -DTHREAD_SAFE_LINKER
+  }
 
   if !os(windows) {
       build-depends: unix >= 2.2.0.0
@@ -54,7 +63,7 @@ test-suite unit-tests
 
 library
   build-depends: base == 4.*,
-                 ghc >= 8.2 && < 8.11,
+                 ghc >= 8.4 && < 8.11,
                  ghc-paths,
                  ghc-boot,
                  transformers,

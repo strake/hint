@@ -1,3 +1,9 @@
+### next version
+
+* Support GHC 8.10
+* Drop support for GHC 8.4
+* Hint can now be used concurrently from multiple threads on GHC 8.10+
+
 ### 0.9.0.2
 
 * Support GHC 8.8
