@@ -63,7 +63,7 @@ test-suite unit-tests
 
 library
   build-depends: base == 4.*,
-                 ghc >= 8.2 && < 8.11,
+                 ghc >= 8.4 && < 8.11,
                  ghc-paths,
                  ghc-boot,
                  transformers,
