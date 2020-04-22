@@ -1,3 +1,8 @@
+### next version
+
+* Support GHC 8.10
+* Drop support for GHC 8.4
+
 ### 0.9.0.2
 
 * Support GHC 8.8
