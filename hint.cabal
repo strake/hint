@@ -42,6 +42,7 @@ test-suite unit-tests
                   filepath,
                   extensible-exceptions,
                   exceptions >= 0.10.0,
+                  stm,
 
                   -- packages used by setImports calls
                   containers
