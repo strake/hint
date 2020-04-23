@@ -35,11 +35,7 @@ runParser parser expr =
                                        err = GHC.vcat $ GHC.pprErrMsgBagWithLoc errMsgs
                                    in pure (ParseError span err)
 #else
-#if __GLASGOW_HASKELL__ >= 804
            GHC.PFailed _ span err
-#else
-           GHC.PFailed span err
-#endif
                                 -> return (ParseError span err)
 #endif
 
