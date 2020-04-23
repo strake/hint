@@ -40,7 +40,6 @@ test-suite unit-tests
                   HUnit,
                   directory,
                   filepath,
-                  extensible-exceptions,
                   exceptions >= 0.10.0,
                   stm,
 

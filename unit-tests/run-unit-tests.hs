@@ -2,7 +2,7 @@ module Main (main) where
 
 import Prelude hiding (catch)
 
-import Control.Exception.Extensible (ArithException(..), AsyncException(UserInterrupt))
+import Control.Exception (ArithException(..), AsyncException(UserInterrupt))
 import Control.Monad.Catch as MC
 
 import Control.Monad (guard, liftM, when, void, (>=>))
