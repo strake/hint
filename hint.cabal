@@ -40,17 +40,12 @@ test-suite unit-tests
                   HUnit,
                   directory,
                   filepath,
-                  extensible-exceptions,
                   exceptions >= 0.10.0,
                   stm,
 
                   -- packages used by setImports calls
                   containers
 
-  if impl(ghc >= 8.4 && < 8.9) {
-      build-depends: temporary
-      cpp-options: -DNEED_PHANTOM_DIRECTORY
-  }
   if impl(ghc >= 8.10) {
       cpp-options: -DTHREAD_SAFE_LINKER
   }
@@ -70,12 +65,9 @@ library
                  filepath,
                  exceptions == 0.10.*,
                  random,
-                 directory
+                 directory,
+                 temporary
 
-  if impl(ghc >= 8.4 && < 8.9) {
-      build-depends: temporary
-      cpp-options: -DNEED_PHANTOM_DIRECTORY
-  }
   if impl(ghc >= 8.10) {
       cpp-options: -DTHREAD_SAFE_LINKER
   }

@@ -60,9 +60,7 @@ data InterpreterError = UnknownError String
 data InterpreterState = St {
                            activePhantoms    :: [PhantomModule],
                            zombiePhantoms    :: [PhantomModule],
-#if defined(NEED_PHANTOM_DIRECTORY)
                            phantomDirectory  :: Maybe FilePath,
-#endif
                            hintSupportModule :: PhantomModule,
                            importQualHackMod :: Maybe PhantomModule,
                            qualImports       :: [ModuleImport],

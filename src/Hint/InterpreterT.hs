@@ -163,9 +163,7 @@ initialState :: InterpreterState
 initialState = St {
                    activePhantoms    = [],
                    zombiePhantoms    = [],
-#if defined(NEED_PHANTOM_DIRECTORY)
                    phantomDirectory  = Nothing,
-#endif
                    hintSupportModule = error "No support module loaded!",
                    importQualHackMod = Nothing,
                    qualImports       = [],
