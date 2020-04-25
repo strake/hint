@@ -16,13 +16,14 @@ It is, essentially, a huge subset of the GHC API wrapped in a simpler API.
 
 ## Limitations
 
-It is possible to run the interpreter inside a thread, but you can't run two
-instances of the interpreter simlutaneously.
+It is possible to run the interpreter inside a thread, but on GHC 8.8 and
+below, you can't run two instances of the interpreter simlutaneously.
 
 GHC must be installed on the system on which the compiled executable is running.
 
-Compatibility is kept with the three last major GHC releases. For example, if
-the current version is GHC 8.6, `hint` will work on 8.6, 8.4 and 8.2.
+Compatibility is kept to the three last major GHC releases: GHC 8.10, 8.8 and
+8.6. When the next GHC release comes out and hint is adapted to work with it,
+we will drop support for GHC 8.6.
 
 ## Example
 
