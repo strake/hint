@@ -25,16 +25,13 @@ import Lexer as X (P(..), ParseResult(..), mkPState)
 import Parser as X (parseStmt, parseType)
 import FastString as X (fsLit)
 
-import DynFlags as X (xFlags, xopt, LogAction, FlagSpec(..))
-
-import DynFlags as X (WarnReason(NoReason))
+import DynFlags as X (xFlags, xopt, LogAction, FlagSpec(..),
+                      WarnReason(NoReason), addWay', Way(..), dynamicGhc)
 
 import PprTyThing as X (pprTypeForUser)
 import SrcLoc as X (mkRealSrcLoc)
 
 import ConLike as X (ConLike(RealDataCon))
-
-import DynFlags as X (addWay', Way(..), dynamicGhc)
 
 type Message = MsgDoc
 

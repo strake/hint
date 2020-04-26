@@ -1,3 +1,5 @@
+{-# LANGUAGE BlockArguments #-}
+
 module Hint.Context (
       isModuleInterpreted,
       loadModules, getLoadedModules, setTopLevelModules,
@@ -13,14 +15,15 @@ module Hint.Context (
 import Prelude hiding (mod)
 
 import Data.Char
-import Data.Either (partitionEithers)
+import Data.Foldable
 import Data.List
-
+import Data.Traversable
 import Control.Arrow ((***))
-
-import Control.Monad       (liftM, filterM, unless, guard, foldM, (>=>))
-import Control.Monad.Trans (liftIO)
+import Control.Monad ((>=>), filterM, unless, guard, foldM)
 import Control.Monad.Catch
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Maybe
 
 import Hint.Base
 import Hint.Conversions
@@ -50,15 +53,14 @@ type ModuleText = String
 -- with the system time with not enough resolution), we also include the process id
 newPhantomModule :: MonadInterpreter m => m PhantomModule
 newPhantomModule =
-    do n <- liftIO randomIO
-       p <- liftIO Compat.getPID
-       (ls,is) <- allModulesInContext
-       let nums = concat [show (abs n::Int), show p, filter isDigit $ concat (ls ++ is)]
-       let mod_name = 'M':nums
-       --
-       tmp_dir <- getPhantomDirectory
-       --
-       return PhantomModule{pmName = mod_name, pmFile = tmp_dir </> mod_name <.> "hs"}
+  [ PhantomModule{pmName = mod_name, pmFile = tmp_dir </> mod_name <.> "hs"}
+  | n <- liftIO randomIO
+  , p <- liftIO Compat.getPID
+  , (ls,is) <- allModulesInContext
+  , let nums = concat [show (abs n::Int), show p, filter isDigit $ concat (ls ++ is)]
+        mod_name = 'M':nums
+  , tmp_dir <- getPhantomDirectory
+  ]
 
 getPhantomDirectory :: MonadInterpreter m => m FilePath
 getPhantomDirectory =
@@ -66,14 +68,14 @@ getPhantomDirectory =
     -- When a module is loaded by file name, ghc-8.4.1 loses track of the
     -- file location after the first time it has been loaded, so we create
     -- a directory for the phantom modules and add it to the search path.
-    do mfp <- fromState phantomDirectory
-       case mfp of
-           Just fp -> return fp
-           Nothing -> do tmp_dir <- liftIO getTemporaryDirectory
-                         fp <- liftIO $ createTempDirectory tmp_dir "hint"
-                         onState (\s -> s{ phantomDirectory = Just fp })
-                         setGhcOption $ "-i" ++ fp
-                         return fp
+    fromState phantomDirectory >>= \ case
+        Just fp -> pure fp
+        Nothing -> do
+            tmp_dir <- liftIO getTemporaryDirectory
+            fp <- liftIO $ createTempDirectory tmp_dir "hint"
+            onState (\s -> s{ phantomDirectory = Just fp })
+            setGhcOption $ "-i" ++ fp
+            return fp
 #else
     liftIO getTemporaryDirectory
 #endif
@@ -82,7 +84,9 @@ allModulesInContext :: MonadInterpreter m => m ([ModuleName], [ModuleName])
 allModulesInContext = runGhc getContextNames
 
 getContext :: GHC.GhcMonad m => m ([GHC.Module], [GHC.ImportDecl GHC.GhcPs])
-getContext = GHC.getContext >>= foldM f ([], [])
+getContext = do
+    ctx <- GHC.getContext
+    foldM f ([], []) ctx
   where
     f :: (GHC.GhcMonad m) =>
          ([GHC.Module], [GHC.ImportDecl GHC.GhcPs]) ->
@@ -90,14 +94,10 @@ getContext = GHC.getContext >>= foldM f ([], [])
          m ([GHC.Module], [GHC.ImportDecl GHC.GhcPs])
     f (ns, ds) i = case i of
       (GHC.IIDecl d)     -> return (ns, d : ds)
-      m@(GHC.IIModule _) -> do n <- iiModToMod m; return (n : ns, ds)
+      (GHC.IIModule m) -> do n <- GHC.findModule m Nothing; return (n : ns, ds)
 
 modToIIMod :: GHC.Module -> GHC.InteractiveImport
 modToIIMod = GHC.IIModule . GHC.moduleName
-
-iiModToMod :: GHC.GhcMonad m => GHC.InteractiveImport -> m GHC.Module
-iiModToMod (GHC.IIModule m) = GHC.findModule m Nothing
-iiModToMod _ = error "iiModToMod!"
 
 getContextNames :: GHC.GhcMonad m => m([String], [String])
 getContextNames = fmap (map name *** map decl) getContext
@@ -123,31 +123,26 @@ fileTarget f = GHC.Target (GHC.TargetFile f $ Just next_phase) True Nothing
 addPhantomModule :: MonadInterpreter m
                  => (ModuleName -> ModuleText)
                  -> m PhantomModule
-addPhantomModule mod_text =
-    do pm <- newPhantomModule
+addPhantomModule mod_text = do
+       pm <- newPhantomModule
        let t = fileTarget (pmFile pm)
            m = GHC.mkModuleName (pmName pm)
        --
        liftIO $ writeFile (pmFile pm) (mod_text $ pmName pm)
        --
        onState (\s -> s{activePhantoms = pm:activePhantoms s})
-       mayFail (do -- GHC.load will remove all the modules from scope, so first
+       pm <$ mayFail do -- GHC.load will remove all the modules from scope, so first
                    -- we save the context...
                    (old_top, old_imps) <- runGhc getContext
                    --
                    runGhc1 GHC.addTarget t
-                   res <- runGhc1 GHC.load (GHC.LoadUpTo m)
-                   --
-                   if isSucceeded res
-                     then do runGhc2 setContext old_top old_imps
-                             return $ Just ()
-                     else return Nothing)
-        `catchIE` (\err -> case err of
-                             WontCompile _ -> do removePhantomModule pm
-                                                 throwM err
-                             _             -> throwM err)
-       --
-       return pm
+                   guard . isSucceeded <$> runGhc1 GHC.load (GHC.LoadUpTo m) >>= traverse \ () ->
+                     runGhc2 setContext old_top old_imps
+        `catchIE` \err -> do
+          case err of
+            WontCompile _ -> removePhantomModule pm
+            _             -> pure ()
+          throwM err
 
 removePhantomModule :: MonadInterpreter m => PhantomModule -> m ()
 removePhantomModule pm =
@@ -168,9 +163,8 @@ removePhantomModule pm =
                      let mods' = filter (mod /=) mods
                      runGhc2 setContext mods' imps
                      --
-                     let isNotPhantom = isPhantomModule . moduleToString  >=>
-                                          return . not
-                     null `liftM` filterM isNotPhantom mods'
+                     let isNotPhantom = fmap not . isPhantomModule . moduleToString
+                     null <$> filterM isNotPhantom mods'
              else return True
        --
        let file_name = pmFile pm
@@ -179,20 +173,17 @@ removePhantomModule pm =
        onState (\s -> s{activePhantoms = filter (pm /=) $ activePhantoms s})
        --
        if safeToRemove
-         then mayFail $ do res <- runGhc1 GHC.load GHC.LoadAllTargets
-                           return $ guard (isSucceeded res) >> Just ()
+         then mayFail $ guard . isSucceeded <$> runGhc1 GHC.load GHC.LoadAllTargets
               `finally` do liftIO $ removeFile (pmFile pm)
          else onState (\s -> s{zombiePhantoms = pm:zombiePhantoms s})
 
 -- Returns a tuple with the active and zombie phantom modules respectively
 getPhantomModules :: MonadInterpreter m => m ([PhantomModule], [PhantomModule])
-getPhantomModules = do active <- fromState activePhantoms
-                       zombie <- fromState zombiePhantoms
-                       return (active, zombie)
+getPhantomModules = (,) <$> fromState activePhantoms <*> fromState zombiePhantoms
 
 isPhantomModule :: MonadInterpreter m => ModuleName -> m Bool
-isPhantomModule mn = do (as,zs) <- getPhantomModules
-                        return $ mn `elem` map pmName (as ++ zs)
+isPhantomModule mn =
+  [mn `elem` map pmName (as ++ zs) | (as,zs) <- getPhantomModules]
 
 -- | Tries to load all the requested modules from their source file.
 --   Modules my be indicated by their ModuleName (e.g. \"My.Module\") or
@@ -221,36 +212,35 @@ isPhantomModule mn = do (as,zs) <- getPhantomModules
 loadModules :: MonadInterpreter m => [String] -> m ()
 loadModules fs = do -- first, unload everything, and do some clean-up
                     reset
-                    doLoad fs `catchIE` (\e -> reset >> throwM e)
+                    doLoad fs `catchIE` \e -> reset >> throwM e
 
 doLoad :: MonadInterpreter m => [String] -> m ()
 doLoad fs = mayFail $ do
-                   targets <- mapM (\f->runGhc2 GHC.guessTarget f Nothing) fs
-                   --
-                   runGhc1 GHC.setTargets targets
-                   res <- runGhc1 GHC.load GHC.LoadAllTargets
-                   -- loading the targets removes the support module
-                   reinstallSupportModule
-                   return $ guard (isSucceeded res) >> Just ()
+  targets <- traverse (\ f -> runGhc2 GHC.guessTarget f Nothing) fs
+  (guard . isSucceeded <$
+   runGhc1 GHC.setTargets targets <*> runGhc1 GHC.load GHC.LoadAllTargets <*
+   -- loading the targets removes the support module
+   reinstallSupportModule)
 
 -- | Returns True if the module was interpreted.
 isModuleInterpreted :: MonadInterpreter m => ModuleName -> m Bool
-isModuleInterpreted m = findModule m >>= runGhc1 GHC.moduleIsInterpreted
+isModuleInterpreted = findModule >=> runGhc1 GHC.moduleIsInterpreted
 
 -- | Returns the list of modules loaded with 'loadModules'.
 getLoadedModules :: MonadInterpreter m => m [ModuleName]
-getLoadedModules = do (active_pms, zombie_pms) <- getPhantomModules
-                      ms <- map modNameFromSummary `liftM` getLoadedModSummaries
-                      return $ ms \\ map pmName (active_pms ++ zombie_pms)
+getLoadedModules =
+  [ ms \\ fmap pmName (active_pms ++ zombie_pms)
+  | (active_pms, zombie_pms) <- getPhantomModules
+  , ms <- fmap modNameFromSummary <$> getLoadedModSummaries ]
 
 modNameFromSummary :: GHC.ModSummary -> ModuleName
 modNameFromSummary = moduleToString . GHC.ms_mod
 
 getLoadedModSummaries :: MonadInterpreter m => m [GHC.ModSummary]
-getLoadedModSummaries =
-  do all_mod_summ <- runGhc GHC.getModuleGraph
-     filterM (runGhc1 GHC.isLoaded . GHC.ms_mod_name)
-             (GHC.mgModSummaries all_mod_summ)
+getLoadedModSummaries = do
+    modGraph <- runGhc GHC.getModuleGraph
+    let modSummaries = GHC.mgModSummaries modGraph
+    filterM (runGhc1 GHC.isLoaded . GHC.ms_mod_name) modSummaries
 
 -- | Sets the modules whose context is used during evaluation. All bindings
 --   of these modules are in scope, not only those exported.
@@ -285,7 +275,7 @@ setTopLevelModules ms =
 --
 --   >  setImportsQ ((zip unqualified $ repeat Nothing) ++ qualifieds)
 setImports :: MonadInterpreter m => [ModuleName] -> m ()
-setImports ms = setImportsF $ map (\m -> ModuleImport m NotQualified NoImportList) ms
+setImports = setImportsF . fmap (\m -> ModuleImport m NotQualified NoImportList)
 
 -- | Sets the modules whose exports must be in context; some
 --   of them may be qualified. E.g.:
@@ -294,7 +284,7 @@ setImports ms = setImportsF $ map (\m -> ModuleImport m NotQualified NoImportLis
 --
 --   Here, "map" will refer to Prelude.map and "M.map" to Data.Map.map.
 setImportsQ :: MonadInterpreter m => [(ModuleName, Maybe String)] -> m ()
-setImportsQ ms = setImportsF $ map (\(m,q) -> ModuleImport m (maybe NotQualified (QualifiedAs . Just) q) NoImportList) ms
+setImportsQ = setImportsF . fmap (\(m,q) -> ModuleImport m (maybe NotQualified (QualifiedAs . Just) q) NoImportList)
 
 -- | Sets the modules whose exports must be in context; some
 --   may be qualified or have imports lists. E.g.:
@@ -302,32 +292,29 @@ setImportsQ ms = setImportsF $ map (\(m,q) -> ModuleImport m (maybe NotQualified
 --   @setImportsF [ModuleImport "Prelude" NotQualified NoImportList, ModuleImport "Data.Text" (QualifiedAs $ Just "Text") (HidingList ["pack"])]@
 
 setImportsF :: MonadInterpreter m => [ModuleImport] -> m ()
-setImportsF ms = do
-       regularMods <- mapM (findModule . modName) regularImports
-       mapM_ (findModule . modName) phantomImports -- just to be sure they exist
+setImportsF moduleImports = do
+       regularMods <- traverse (findModule . modName) regularImports
+       traverse_ (findModule . modName) phantomImports -- just to be sure they exist
        --
        old_qual_hack_mod <- fromState importQualHackMod
-       maybe (return ()) removePhantomModule old_qual_hack_mod
+       traverse_ removePhantomModule old_qual_hack_mod
        --
-       new_pm <- if null phantomImports
-                   then return Nothing
-                   else do
-                     new_pm <- addPhantomModule $ \mod_name -> unlines $
-                                ("module " ++ mod_name ++ " where ") :
-                                map newImportLine phantomImports
-                     onState (\s -> s{importQualHackMod = Just new_pm})
-                     return $ Just new_pm
+       maybe_phantom_module <- runMaybeT $ do
+         guard . not . null $ phantomImports
+         let moduleContents = newImportLine <$> phantomImports
+         new_phantom_module <- lift $ addPhantomModule $ \mod_name -> unlines $
+           ("module " ++ mod_name ++ " where ") : moduleContents
+         new_phantom_module <$ (lift . onState) (\s -> s{importQualHackMod = Just new_phantom_module})
        --
-       pm <- maybe (return []) (findModule . pmName >=> return . return) new_pm
+       phantom_mods <- for (toList maybe_phantom_module) (findModule . pmName)
        (old_top_level, _) <- runGhc getContext
-       let new_top_level = pm ++ old_top_level
+       let new_top_level = phantom_mods ++ old_top_level
        runGhc2 setContextModules new_top_level regularMods
        --
        onState (\s ->s{qualImports = phantomImports})
   where
-    (regularImports, phantomImports) = partitionEithers $ map (\m -> if isQualified m || hasImportList m
-                                                                       then Right m
-                                                                       else Left m) ms
+    (phantomImports, regularImports) =
+        partition (\ m -> isQualified m || hasImportList m) moduleImports
     isQualified m = modQual m /= NotQualified
     hasImportList m = modImp m /= NoImportList
     newImportLine m = concat ["import ", case modQual m of
@@ -370,7 +357,7 @@ cleanPhantomModules =
 #if defined(NEED_PHANTOM_DIRECTORY)
        old_phantomdir <- fromState phantomDirectory
        onState (\s -> s{phantomDirectory    = Nothing})
-       liftIO $ do maybe (return ()) removeDirectory old_phantomdir
+       liftIO $ traverse_ removeDirectory old_phantomdir
 #endif
 
 -- | All imported modules are cleared from the context, and
@@ -425,12 +412,14 @@ altPreludeName :: ModuleName -> String
 altPreludeName mod_name = "Prelude_" ++ mod_name
 
 supportString :: MonadInterpreter m => m String
-supportString = do mod_name <- fromState (pmName . hintSupportModule)
-                   return $ concat [mod_name, ".", altStringName mod_name]
+supportString =
+  [ concat [mod_name, ".", altStringName mod_name]
+  | mod_name <- fromState (pmName . hintSupportModule) ]
 
 supportShow :: MonadInterpreter m => m String
-supportShow = do mod_name <- fromState (pmName . hintSupportModule)
-                 return $ concat [mod_name, ".", altShowName mod_name]
+supportShow =
+  [ concat [mod_name, ".", altShowName mod_name]
+  | mod_name <- fromState (pmName . hintSupportModule) ]
 
 -- SHOULD WE CALL THIS WHEN MODULES ARE LOADED / UNLOADED?
 -- foreign import ccall "revertCAFs" rts_revertCAFs :: IO ()

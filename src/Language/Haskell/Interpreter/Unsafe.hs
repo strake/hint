@@ -3,7 +3,7 @@ module Language.Haskell.Interpreter.Unsafe (
     unsafeInterpret
 ) where
 
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import Control.Monad.Catch
 
 import Hint.Base

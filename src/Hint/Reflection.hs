@@ -38,30 +38,18 @@ getModuleExports mn =
 
 asModElemList :: GHC.DynFlags -> [GHC.TyThing] -> [ModuleElem]
 asModElemList df xs = concat [
-                        cs',
-                        ts',
-                        ds \\ concatMap (map Fun . children) ts',
-                        fs \\ concatMap (map Fun . children) cs'
+                        cs,
+                        ts,
+                        ds \\ concatMap (map Fun . children) ts,
+                        fs \\ concatMap (map Fun . children) cs
                       ]
-    where (cs,ts,ds,fs) =
-           (
-             [asModElem df c | c@(GHC.ATyCon c') <- xs, GHC.isClassTyCon c'],
-             [asModElem df t | t@(GHC.ATyCon c') <- xs, (not . GHC.isClassTyCon) c'],
-             [asModElem df d | d@(GHC.AConLike GHC.RealDataCon{}) <- xs],
-             [asModElem df f | f@GHC.AnId{} <- xs]
-           )
-          cs' = [Class n $ filter (alsoIn fs) ms  | Class n ms  <- cs]
-          ts' = [Data  t $ filter (alsoIn ds) dcs | Data  t dcs <- ts]
-          alsoIn es = (`elem` map name es)
-
-asModElem :: GHC.DynFlags -> GHC.TyThing -> ModuleElem
-asModElem df (GHC.AnId f)      = Fun $ getUnqualName df f
-asModElem df (GHC.AConLike (GHC.RealDataCon dc)) = Fun $ getUnqualName df dc
-asModElem df (GHC.ATyCon tc)   =
-  if GHC.isClassTyCon tc
-  then Class (getUnqualName df tc) (map (getUnqualName df) $ (GHC.classMethods . fromJust . GHC.tyConClass_maybe) tc)
-  else Data  (getUnqualName df tc) (map (getUnqualName df) $ GHC.tyConDataCons tc)
-asModElem _ _ = error "asModElem: can't happen!"
+    where cs = [Class (getUnqualName df tc) (filter (alsoIn fs) $ getUnqualName df <$> GHC.classMethods c)
+               | GHC.ATyCon tc <- xs, Just c  <- [GHC.tyConClass_maybe tc]]
+          ts = [Data  (getUnqualName df tc) (filter (alsoIn ds) $ getUnqualName df <$> GHC.tyConDataCons tc)
+               | GHC.ATyCon tc <- xs, Nothing <- [GHC.tyConClass_maybe tc]]
+          ds = [Fun $ getUnqualName df dc | GHC.AConLike (GHC.RealDataCon dc) <- xs]
+          fs = [Fun $ getUnqualName df f  | GHC.AnId f                        <- xs]
+          alsoIn = flip elem . fmap name
 
 getUnqualName :: GHC.NamedThing a => GHC.DynFlags -> a -> String
 getUnqualName dfs = GHC.showSDocUnqual dfs . GHC.pprParenSymName

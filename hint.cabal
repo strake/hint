@@ -57,7 +57,7 @@ library
                  ghc >= 8.2 && < 8.9,
                  ghc-paths,
                  ghc-boot,
-                 mtl,
+                 transformers,
                  filepath,
                  exceptions == 0.10.*,
                  random,
@@ -103,3 +103,5 @@ library
                Rank2Types
                ScopedTypeVariables
                ExistentialQuantification
+               LambdaCase
+               MonadComprehensions

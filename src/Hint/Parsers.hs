@@ -4,7 +4,7 @@ import Prelude hiding (span)
 
 import Hint.Base
 
-import Control.Monad.Trans (liftIO)
+import Control.Monad.IO.Class (liftIO)
 
 import qualified Hint.GHC as GHC
 
@@ -41,13 +41,10 @@ failOnParseError :: MonadInterpreter m
                  -> String
                  -> m ()
 failOnParseError parser expr = mayFail go
-    where go = do parsed <- parser expr
-                  --
-                  -- If there was a parsing error,
-                  -- do the "standard" error reporting
-                  case parsed of
+    where go = parser expr >>= \ case
                       ParseOk             -> return (Just ())
-                      --
+                      -- If there was a parsing error,
+                      -- do the "standard" error reporting
                       ParseError span err ->
                           do -- parsing failed, so we report it just as all
                              -- other errors get reported....

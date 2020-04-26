@@ -18,9 +18,7 @@ typeOf expr =
        -- kind of errors
        failOnParseError parseExpr expr
        --
-       ty <- mayFail $ runGhc1 exprType expr
-       --
-       typeToString ty
+       mayFail (runGhc1 exprType expr) >>= typeToString
 
 -- | Tests if the expression type checks.
 --
@@ -28,7 +26,7 @@ typeOf expr =
 -- Perhaps unsurprisingly, that can falsely make @typeChecks@ and @getType@
 -- return @True@ and @Right _@ respectively.
 typeChecks :: MonadInterpreter m => String -> m Bool
-typeChecks expr = (typeOf expr >> return True)
+typeChecks expr = (True <$ typeOf expr)
                               `catchIE`
                               onCompilationError (\_ -> return False)
 

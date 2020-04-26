@@ -16,7 +16,9 @@ module Hint.Configuration (
 
 import Control.Monad
 import Control.Monad.Catch
+import Data.Bool (bool)
 import Data.Char
+import Data.Foldable
 #if defined(NEED_PHANTOM_DIRECTORY)
 import Data.Maybe (maybe)
 #endif
@@ -36,8 +38,7 @@ setGhcOptions opts =
             throwM $ UnknownError
                             $ concat ["flags: ", unwords $ map quote not_parsed,
                                                "not recognized"]
-       _ <- runGhc1 GHC.setSessionDynFlags new_flags
-       return ()
+       () <$ runGhc1 GHC.setSessionDynFlags new_flags
 
 setGhcOption :: MonadInterpreter m => String -> m ()
 setGhcOption opt = setGhcOptions [opt]
@@ -68,7 +69,7 @@ data OptionVal m = forall a . (Option m a) := a
 --
 --   @set [opt1 := val1, opt2 := val2,... optk := valk]@
 set :: MonadInterpreter m => [OptionVal m] -> m ()
-set = mapM_ $ \(opt := val) -> _set opt val
+set = traverse_ $ \(opt := val) -> _set opt val
 
 -- | Retrieves the value of an option.
 get :: MonadInterpreter m => Option m a -> m a
@@ -86,7 +87,7 @@ languageExtensions = Option setter getter
           getter = fromConf languageExts
           --
           resetExtensions = do es <- fromState defaultExts
-                               setGhcOptions $ map (uncurry $ flip extFlag) es
+                               setGhcOptions $ uncurry (flip extFlag) <$> es
 
 extFlag :: Bool -> Extension -> String
 extFlag = mkFlag
@@ -94,8 +95,8 @@ extFlag = mkFlag
         mkFlag b o                      = strToFlag b (show o)
         --
         strToFlag b o@('N':'o':(c:_))
-                             | isUpper c = "-X" ++ drop (if b then 0 else 2) o
-        strToFlag b o                    = "-X" ++ concat ["No"|not b] ++ o
+                             | isUpper c = "-X" ++ bool (drop 2) id b o
+        strToFlag b o                    = "-X" ++ bool "No" "" b ++ o
 
 -- | When set to @True@, every module in every available package is implicitly
 --   imported qualified. This is very convenient for interactive
@@ -110,8 +111,8 @@ installedModulesInScope :: MonadInterpreter m => Option m Bool
 installedModulesInScope = Option setter getter
     where getter = fromConf allModsInScope
           setter b = do onConf $ \c -> c{allModsInScope = b}
-                        setGhcOption $ "-f"                   ++
-                                       concat ["no-" | not b] ++
+                        setGhcOption $ "-f" ++
+                                       bool "no-" "" b ++
                                        "implicit-import-qualified"
 
 -- | The search path for source files. Observe that every time it is set,
@@ -125,9 +126,7 @@ searchPath = Option setter getter
                         setGhcOption "-i" -- clear the old path
                         setGhcOption $ "-i" ++ intercalate ":" p
 #if defined(NEED_PHANTOM_DIRECTORY)
-                        mfp <- fromState phantomDirectory
-                        maybe (return ())
-                              (\fp -> setGhcOption $ "-i" ++ fp) mfp
+                        fromState phantomDirectory >>= traverse_ (\fp -> setGhcOption $ "-i" ++ fp)
 #endif
 
 fromConf :: MonadInterpreter m => (InterpreterConfiguration -> a) -> m a

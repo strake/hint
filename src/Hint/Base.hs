@@ -19,7 +19,7 @@ module Hint.Base (
     debug, showGHC
 ) where
 
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import Control.Monad.Catch as MC
 
 import Data.IORef
@@ -151,11 +151,12 @@ runGhc2 f a = runGhc1 (f a)
 -- ================ Handling the interpreter state =================
 
 fromState :: MonadInterpreter m => (InterpreterState -> a) -> m a
-fromState f = do ref_st <- fromSession internalState
-                 liftIO $ f `fmap` readIORef ref_st
+fromState f = do
+  ref_st <- fromSession internalState
+  liftIO $ f <$> readIORef ref_st
 
 onState :: MonadInterpreter m => (InterpreterState -> InterpreterState) -> m ()
-onState f = modifySessionRef internalState f >> return ()
+onState f = () <$ modifySessionRef internalState f
 
 -- =============== Error handling ==============================
 
@@ -194,13 +195,11 @@ findModule mn = mapGhcExceptions NotAllowed $
     where mod_name = GHC.mkModuleName mn
 
 moduleIsLoaded :: MonadInterpreter m => ModuleName -> m Bool
-moduleIsLoaded mn = (findModule mn >> return True)
+moduleIsLoaded mn = (True <$ findModule mn)
                    `catchIE` (\e -> case e of
                                       NotAllowed{}  -> return False
                                       WontCompile{} -> return False
                                       _             -> throwM e)
 
 withDynFlags :: MonadInterpreter m => (GHC.DynFlags -> m a) -> m a
-withDynFlags action
- = do df <- runGhc GHC.getSessionDynFlags
-      action df
+withDynFlags = (runGhc GHC.getSessionDynFlags >>=)

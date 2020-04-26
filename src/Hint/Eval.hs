@@ -1,6 +1,5 @@
 module Hint.Eval (
-      interpret, as, infer,
-      unsafeInterpret,
+      interpret, unsafeInterpret,
       eval, runStmt,
       parens
 ) where
@@ -10,7 +9,6 @@ import qualified GHC.Exts (unsafeCoerce#)
 import Control.Exception
 
 import Data.Typeable hiding (typeOf)
-import qualified Data.Typeable (typeOf)
 
 import Hint.Base
 import Hint.Context
@@ -19,31 +17,21 @@ import Hint.Util
 
 import qualified Hint.GHC as GHC
 
--- | Convenience functions to be used with @interpret@ to provide witnesses.
---   Example:
---
---   * @interpret \"head [True,False]\" (as :: Bool)@
---
---   * @interpret \"head $ map show [True,False]\" infer >>= flip interpret (as :: Bool)@
-as, infer :: Typeable a => a
-as    = undefined
-infer = undefined
-
 -- | Evaluates an expression, given a witness for its monomorphic type.
-interpret :: (MonadInterpreter m, Typeable a) => String -> a -> m a
-interpret expr wit = unsafeInterpret expr (show $ Data.Typeable.typeOf wit)
+interpret :: (MonadInterpreter m, Typeable a) => proxy a -> String -> m a
+interpret = unsafeInterpret . show . typeRep
 
 unsafeInterpret :: (MonadInterpreter m) => String -> String -> m a
-unsafeInterpret expr type_str =
-    do -- First, make sure the expression has no syntax errors,
-       -- for this is the only way we have to "intercept" this
-       -- kind of errors
-       failOnParseError parseExpr expr
-       --
-       let expr_typesig = concat [parens expr, " :: ", type_str]
-       expr_val <- mayFail $ runGhc1 compileExpr expr_typesig
-       --
-       return (GHC.Exts.unsafeCoerce# expr_val :: a)
+unsafeInterpret type_str expr = do
+    -- First, make sure the expression has no syntax errors,
+    -- for this is the only way we have to "intercept" this
+    -- kind of errors
+    failOnParseError parseExpr expr
+    --
+    let expr_typesig = concat [parens expr, " :: ", type_str]
+    expr_val <- mayFail $ runGhc1 compileExpr expr_typesig
+    --
+    pure (GHC.Exts.unsafeCoerce# expr_val :: a)
 
 -- add a bogus Maybe, in order to use it with mayFail
 compileExpr :: GHC.GhcMonad m => String -> m (Maybe GHC.HValue)
@@ -67,9 +55,8 @@ eval expr = do in_scope_show   <- supportShow
 runStmt :: (MonadInterpreter m) => String -> m ()
 runStmt = mayFail . runGhc1 go
     where
-    go statements = do
-        result <- GHC.execStmt statements GHC.execOptions
-        return $ case result of
+    go statements =
+        flip fmap (GHC.execStmt statements GHC.execOptions) $ \ case
             GHC.ExecComplete { GHC.execResult = Right _ } -> Just ()
             GHC.ExecComplete { GHC.execResult = Left  e } -> throw e
             _                                             -> Nothing
